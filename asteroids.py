@@ -6,14 +6,24 @@ from cmu_graphics import *
 import math
 import random
 
+#START SCREEN
+def initStartScreen():
+    # Set the mode to startScreen so the rest of the code can interact correctly
+    app.mode = 'startScreen'
+    #Create text describing how to play the game and how to start
+    app.background = 'black'
+    Label("Don't hit the asteroids and get as high a score as you can!", 200, 185, fill='white')
+    Label("W,A, and D to move", 200, 200, fill='white')
+    Label("Press S to start", 200, 215, fill='white')
+
 #FUNCTION TO CREATE/RESET THE GAME SPACE (background, players, enemies, score, etc)
 def startGame():
     #Since startGame won't always be called from an empty screen, clear it so it is empty.
     app.group.clear()
     #Set the mode to playing (the rest of the program needs to know we've started)
     app.mode = 'playing'
-    #make a global variable called time (so it can be used throughout the app) (WARNING: Globals should be used sparingly)
-    #Then make sure it is reset/set to 0
+    #Set/reset the global time variable to 0 (another function will handle the actual time keeping)
+    #(WARNING: Globals should be used sparingly)
     global time
     time = 0
     
@@ -44,18 +54,23 @@ def startGame():
     )
 
     #CREATE SCORE LABEL
-    #Let the player see their score. Is added last so it appears ontop of everything else
+    #Let the player see their score. Its added last so it appears ontop of everything else
     app.score = Label(0, 15, 15, size=15, font='montserrat', fill='white')
     
 
 #HANDLE PLAYER INPUT
 def handlePlayer(keys):
+    #Since keys are returned in a 'list, we can use the Python 'in' operator to check through the whole list
     if('w' in keys):
+        #To move the player forwards in the direction they are currently facing, we can use the
+        #getPointinDir(x,y,angle,distance) function with the player's coords and how far we want to move as the parameters
         newLeft, newTop = getPointInDir(app.player.left, app.player.top, app.player.rotateAngle, 5)
+        #Check that these proposed coords are in bounds. If yes, set the player position to them. If no, do nothing (IE keep current coords and not let them move out of bounds). 
         if(not(newLeft < 0 or newLeft > 360)):
             app.player.left = newLeft
         if(not(newTop < 0 or newTop > 360)):
             app.player.top = newTop
+    #Rotate the player on keypress (set the player angle to the current player angle +- the given amount)
     if('d' in keys):
         app.player.rotateAngle += 5
     elif('a' in keys):
@@ -63,26 +78,38 @@ def handlePlayer(keys):
 
 #HANDLE ASTEROID MOVEMENT AND BOUNCING
 def handleAsteroids():
+    #To make the asteroids speed up over time to add difficulty,
+    #we take the global variable keeping track of time and set the speed proportional to it.
+    #We then double check it is at a minimum speed and if not set the speed to the minimum
     global time
     speed = time/127
     if (speed < 1):
         speed = 1
-        
+
+    #Loop through all the asteroids by using a 'for' loop on the asteroids group. 
     for asteroid in app.asteroids:
+        #Move the given asteroid forwards using the same getPointInDir method as the player's forwards movement
         asteroid.left, asteroid.top = getPointInDir(asteroid.left, asteroid.top, asteroid.rotateAngle, speed)
+        #if a given asteroid is out of bounds, make it face towards the player again with some random variation
+        #This makes sure the asteroids are always headed back into bounds to the player, but keeps it from being preditable
         if((asteroid.left < 0 or asteroid.left > 380) or (asteroid.top < 0 or asteroid.top > 380)):
             asteroid.rotateAngle = angleTo(asteroid.left, asteroid.top, app.player.left, app.player.top) + random.randrange(-100, 100)
         
 #HANDLE TIMER AND SCORE
 def handleScore():
+    #Set the global time variable to itself plus 1 every step/tick
+    #This will make the time variable equal to [the steprate * seconds]
+    #Since our score is based off of seconds, we divide time (steps occured) by the steprate (steps per second) to the seconds.
     global time
     time += 1
     app.score.value = math.floor(time/app.stepsPerSecond)
 
 #HANDLE FAIL CONDITION
 def handleFail():
+    #Check for each asteroid in the asteriods group if they touch and of the player parts
+    #If yes they touch, set the mode to 'gameOver', clear the app of all the current game objects,
+    #and set text describing the score and how to restart
     for asteroid in app.asteroids:
-        #if(asteroids.hitTest(player.centerX, player.centerY) != None):
         for playerShape in app.player:
             if(asteroid.hitsShape(playerShape) == True):
                 app.mode = 'gameOver'
@@ -91,32 +118,31 @@ def handleFail():
                 Label(scoreMessage, 200, 200, fill='white')
                 Label("Press R to Restart", 200, 220, fill='white')
 
-#HANDLE INPUTS - call functions on keypresses/pass keypresses to required functions
-#While we define this function, it is called by the cmu_graphics module 
+
+#FUNCTIONS DECLARED BY CMU_GRAPHICS# - We still define them, but we can't change their names or when they are called
+                
+#HANDLE INPUTS - returns a list of keys currently pressed EI: ['d','space','enter']
 def onKeyHold(keys):
+    #Since keys are returned in an unkown list, we can use the Python 'in' operator
+    #We also check the mode (to make sure it doesn't accidently restart while playing, or try to move objects while in the menu)
     if(app.mode == 'playing'):
         handlePlayer(keys)
     elif(app.mode == 'startScreen' and 's' in keys):
         startGame()
     elif app.mode == 'gameOver' and 'r' in keys:
         startGame()
-        
-app.stepsPerSecond = 30 #Using 30 as it just felt right.
+
+#ONSTEP - Code which runs every step/tick
+#stepsPerSecond - How many times the code loops per second
+app.stepsPerSecond = 30 
 def onStep():
+    #Check if we are in the 'playing' mode, then run all the game functions which aren't already called by a built-in function
     if (app.mode == 'playing'):
         handleAsteroids()
         handleScore()
         handleFail()
 
-def initStartScreen():
-    # Set the mode to startScreen so the game can handle starting correctly
-    app.mode = 'startScreen'
-    #Create text describing how to play the game and how to start
-    app.background = 'black'
-    Label("Don't hit the asteroids and get as high a score as you can!", 200, 185, fill='white')
-    Label("W,A, and D to move", 200, 200, fill='white')
-    Label("Press S to start", 200, 215, fill='white')
-
+#After defining all the functions and code, start the game on the start screen
 initStartScreen()
 
 

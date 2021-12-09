@@ -104,13 +104,6 @@ def handleScore():
     time += 1
     app.score.value = math.floor(time/app.stepsPerSecond)
 
-def onFail():
-    app.mode = 'gameOver'
-    app.group.clear()
-    scoreMessage ='You got through ' + str(app.score.value) + ' seconds, nice!'
-    Label(scoreMessage, 200, 200, fill='white')
-    Label("Press R to Restart", 200, 220, fill='white')
-
 #HANDLE FAIL CONDITION
 def handleFail():
     #Check for each asteroid in the asteriods group if they touch and of the player parts
@@ -119,7 +112,11 @@ def handleFail():
     for asteroid in app.asteroids:
         for playerShape in app.player:
             if(asteroid.hitsShape(playerShape) == True):
-                onFail()
+                app.mode = 'gameOver'
+                app.group.clear()
+                scoreMessage ='You got through ' + str(app.score.value) + ' seconds, nice!'
+                Label(scoreMessage, 200, 200, fill='white')
+                Label("Press R to Restart", 200, 220, fill='white')
 
 
 #FUNCTIONS DECLARED BY CMU_GRAPHICS# - We still define them, but we can't change their names or when they are called
@@ -145,7 +142,7 @@ def onStep():
         handleScore()
         handleFail()
 
-#After defining all the functions and code, start the game on the start screen
+#START THE GAME - After all the required functions have been defined, call the start screen function
 initStartScreen()
 
 

@@ -8,6 +8,7 @@ import random
 import numpy as np
 import math
 import aipi
+import os
 
 
 #START SCREEN
@@ -69,6 +70,15 @@ def handlePlayer(keys):
         #To move the player forwards in the direction they are currently facing, we can use the
         #getPointinDir(x,y,angle,distance) function with the player's coords and how far we want to move as the parameters
         newLeft, newTop = getPointInDir(app.player.left, app.player.top, app.player.rotateAngle, 5)
+        #Check that these proposed coords are in bounds. If yes, set the player position to them. If no, do nothing (IE keep current coords and not let them move out of bounds). 
+        if(not(newLeft < 0 or newLeft > 360)):
+            app.player.left = newLeft
+        if(not(newTop < 0 or newTop > 360)):
+            app.player.top = newTop
+    else:
+        #To move the player forwards in the direction they are currently facing, we can use the
+        #getPointinDir(x,y,angle,distance) function with the player's coords and how far we want to move as the parameters
+        newLeft, newTop = getPointInDir(app.player.left, app.player.top, app.player.rotateAngle, 1)
         #Check that these proposed coords are in bounds. If yes, set the player position to them. If no, do nothing (IE keep current coords and not let them move out of bounds). 
         if(not(newLeft < 0 or newLeft > 360)):
             app.player.left = newLeft
@@ -147,9 +157,17 @@ ai = aipi.ActorCritic(aiInterface, startGame, 9, 3)
 
 
 
-
 #FUNCTIONS DECLARED BY CMU_GRAPHICS# - We still define them, but we can't change their names or when they are called
-                
+
+#save models on number keypress
+def onKeyPress(key):
+    for number in range(9):
+        number +=1
+        if key == str(number):
+            location = 'models/'+str(os.path.basename(__file__))+'_'+str(number)
+            ai.saveModel(location)
+
+            
 #HANDLE INPUTS - returns a list of keys currently pressed EI: ['d','space','enter']
 def onKeyHold(keys):
     #Since keys are returned in an unkown list, we can use the Python 'in' operator

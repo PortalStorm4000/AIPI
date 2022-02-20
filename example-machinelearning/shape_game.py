@@ -156,7 +156,7 @@ def aiInterface(action):
 
 #CREATE AI OBJECT
 #Now that we have set up our interface, create an ai object to so we have ai (aipi module lets us easily use different types of algorthims without making it ourselves)
-ai = aipi.DeepQ(aiInterface, startGame, 4, 4)
+ai = aipi.ActorCritic(aiInterface, startGame, 4, 4)
 
 
 ####-CMU FUNCTIONS/ENGINE LOOP-#####

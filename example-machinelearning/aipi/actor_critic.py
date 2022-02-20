@@ -13,8 +13,7 @@ class ActorCritic(AIBase):
         #Create model
         self.gamma = 0.99  # Discount factor for past rewards
         self.eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
-        startGame()
-        self.state, reward, done, _ = self.aiInterface(None)
+        self.reset()
 
         num_hidden = 128
         inputs = layers.Input(shape=(self.num_inputs,))
@@ -38,17 +37,17 @@ class ActorCritic(AIBase):
         self.running_reward = 0
         self.episode_count = 0
 
+    def reset(self):
+        self.startGame()
+        self.state = self.aiInterface(None)[0] #index gets only first result as aiInterface returns a tuple
+        self.episode_reward = 0
 
-    def saveModel(self, location):
-        self.model.save(location)
 
-    
     #Train
     def train_loop(self, goalCompleted):  # Run until solved
         if goalCompleted:
             return True
         
-        episode_reward = 0
         isRunning = True
         with tf.GradientTape() as tape:
             if isRunning:
@@ -67,16 +66,15 @@ class ActorCritic(AIBase):
                 # Apply the sampled action in our environment
                 self.state, reward, done, _ = self.aiInterface(action)
                 self.rewards_history.append(reward)
-                episode_reward += reward
+                self.episode_reward += reward
 
                 if done:
                     isRunning = False
-                    self.startGame()
 
 
             if isRunning==False:
                 # Update running reward to check condition for solving
-                self.running_reward = 0.05 * episode_reward + (1 - 0.05) * self.running_reward
+                self.running_reward = 0.05 * self.episode_reward + (1 - 0.05) * self.running_reward
 
                 # Calculate expected value from rewards
                 # - At each timestep what was the total reward received after that timestep
@@ -121,7 +119,10 @@ class ActorCritic(AIBase):
                 self.action_probs_history.clear()
                 self.critic_value_history.clear()
                 self.rewards_history.clear()
-            # Log details
+
+                self.reset()
+
+                # Log details
                 self.episode_count += 1
                 if self.episode_count % 10 == 0:
                     template = "running reward: {:.2f} at episode {}"

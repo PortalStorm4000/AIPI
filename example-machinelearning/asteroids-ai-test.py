@@ -10,7 +10,6 @@ import math
 import aipi
 import os
 
-
 #START SCREEN
 def initStartScreen():
     # Set the mode to startScreen so the rest of the code can interact correctly
@@ -96,7 +95,7 @@ def handleAsteroids():
     #we take the global variable keeping track of time and set the speed proportional to it.
     #We then double check it is at a minimum speed and if not set the speed to the minimum
     global time
-    speed = time/127
+    speed = time / 127
     if (speed < 1):
         speed = 1
 
@@ -154,7 +153,7 @@ def aiInterface(action):
     return np.array(state, dtype=np.float32), reward, done, {}
 
 
-ai = aipi.ActorCritic(aiInterface, startGame, 9, 3)
+ai = aipi.DeepQ(aiInterface, startGame, 9, 3)
 
 
 

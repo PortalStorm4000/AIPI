@@ -55,14 +55,13 @@ class DeepQ(AIBase):
         self.epsilon_greedy_frames = 1000000.0
         # Maximum replay length
         # Note: The Deepmind paper suggests 1000000 however this causes memory issues
-        self.max_memory_length = 100000
+        self.max_memory_length = 300000
         # Train the model after 4 actions
         self.update_after_actions = 4
         # How often to update the target network
         self.update_target_network = 10000
         # Using huber loss for stability
         self.loss_function = keras.losses.Huber()
-
 
     #Create model
     #NETWORK CREATION
@@ -83,7 +82,7 @@ class DeepQ(AIBase):
     #Set enviroment to defaults
     def reset(self):
         self.startGame()
-        self.state = np.array(self.aiInterface(None)[0])
+        self.state = np.array(self.aiInterface(None)[0]) #index gets only first result as aiInterface returns a tuple
         self.episode_reward = 0
 
 
@@ -186,7 +185,6 @@ class DeepQ(AIBase):
 
             if done:
                 isRunning = False
-                self.reset()
 
         if isRunning == False:
             # Update running reward to check condition for solving
@@ -196,6 +194,8 @@ class DeepQ(AIBase):
             self.running_reward = np.mean(self.episode_reward_history)
 
             self.episode_count += 1
+
+            self.reset() #We call reset at the end as it will set the episode reward back to 0 
 
             if goalCompleted:  # Condition to consider the task solved
                 print("Solved at episode {}!".format(self.episode_count))

@@ -6,3 +6,7 @@ class AIBase():
         self.startGame = startGame
         self.num_inputs = num_inputs
         self.num_actions = num_actions
+    
+    #Saves current model to file
+    def saveModel(self, location):
+        self.model.save(location)

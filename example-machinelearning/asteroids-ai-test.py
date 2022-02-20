@@ -143,13 +143,14 @@ def aiInterface(action):
     reward = 1
     if handleFail():
         done = True
-        reward = 0
+        reward -= 1
     
     #Return our game's state, reward, and if run needs reset back to our NN
     state = [app.player.rotateAngle, app.player.centerX, app.player.centerY]
     for asteroid in app.asteroids:
         state.append(asteroid.centerX)
         state.append(asteroid.centerY)
+
     return np.array(state, dtype=np.float32), reward, done, {}
 
 

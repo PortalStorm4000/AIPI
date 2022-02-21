@@ -1,3 +1,6 @@
+#Code taken from keras example by Jacob Chapman and Mathias Lechner. https://github.com/keras-team/keras-io/blob/master/examples/rl/deep_q_network_breakout.py
+#Modified to work with games made with the Cmu Graphics library by Jonathan S.
+
 from .ai_base import AIBase
 
 import numpy as np

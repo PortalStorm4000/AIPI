@@ -1,9 +1,13 @@
+#Code taken from keras example by Apoorv Nandan. https://github.com/keras-team/keras-io/blob/master/examples/rl/actor_critic_cartpole.py
+#Modified to work with games made with the Cmu Graphics library by Jonathan S.
+
 from .ai_base import AIBase
 
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+
 
 class ActorCritic(AIBase):
     def __init__(self, aiInterface, startGame, num_inputs, num_actions):

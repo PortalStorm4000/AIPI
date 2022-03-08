@@ -4,18 +4,17 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import numpy as np
 
+
+#Number of inputs and actions/outputs
 num_states = env.observation_space.shape[0]
-print("Size of State Space ->  {}".format(num_states))
 num_actions = env.action_space.shape[0]
-print("Size of Action Space ->  {}".format(num_actions))
 
-upper_bound = env.action_space.high[0]
-lower_bound = env.action_space.low[0]
-
-print("Max Value of Action ->  {}".format(upper_bound))
-print("Min Value of Action ->  {}".format(lower_bound))
+#Clamping output of network
+upper_bound = 400
+lower_bound = 0
 
 
+#Generates noise for exploration
 class OUActionNoise:
     def __init__(self, mean, std_deviation, theta=0.15, dt=1e-2, x_initial=None):
         self.theta = theta
@@ -184,7 +183,7 @@ def policy(state, noise_object):
 
 
 
-class DeepQ(AIBase):
+class DDPG(AIBase):
     def __init__(self, aiInterface, startGame, num_inputs, num_actions):
         #inherit previous inputs
         super().__init__(aiInterface, startGame, num_inputs, num_actions)

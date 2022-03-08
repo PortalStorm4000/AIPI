@@ -1,3 +1,4 @@
+from this import d
 from .ai_base import AIBase
 
 import tensorflow as tf
@@ -5,13 +6,7 @@ from tensorflow.keras import layers
 import numpy as np
 
 
-#Number of inputs and actions/outputs
-num_states = env.observation_space.shape[0]
-num_actions = env.action_space.shape[0]
 
-#Clamping output of network
-upper_bound = 400
-lower_bound = 0
 
 
 #Generates noise for exploration
@@ -44,7 +39,7 @@ class OUActionNoise:
 
 
 class Buffer:
-    def __init__(self, buffer_capacity=100000, batch_size=64):
+    def __init__(self, num_actions, num_states, buffer_capacity=100000, batch_size=64):
         # Number of "experiences" to store at max
         self.buffer_capacity = buffer_capacity
         # Num of tuples to train on.
@@ -124,64 +119,6 @@ class Buffer:
         self.update(state_batch, action_batch, reward_batch, next_state_batch)
 
 
-# This update target parameters slowly
-# Based on rate `tau`, which is much less than one.
-@tf.function
-def update_target(target_weights, weights, tau):
-    for (a, b) in zip(target_weights, weights):
-        a.assign(b * tau + a * (1 - tau))
-
-
-def get_actor():
-    # Initialize weights between -3e-3 and 3-e3
-    last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
-
-    inputs = layers.Input(shape=(num_states,))
-    out = layers.Dense(256, activation="relu")(inputs)
-    out = layers.Dense(256, activation="relu")(out)
-    outputs = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out)
-
-    # Our upper bound is 2.0 for Pendulum.
-    outputs = outputs * upper_bound
-    model = tf.keras.Model(inputs, outputs)
-    return model
-
-
-def get_critic():
-    # State as input
-    state_input = layers.Input(shape=(num_states))
-    state_out = layers.Dense(16, activation="relu")(state_input)
-    state_out = layers.Dense(32, activation="relu")(state_out)
-
-    # Action as input
-    action_input = layers.Input(shape=(num_actions))
-    action_out = layers.Dense(32, activation="relu")(action_input)
-
-    # Both are passed through seperate layer before concatenating
-    concat = layers.Concatenate()([state_out, action_out])
-
-    out = layers.Dense(256, activation="relu")(concat)
-    out = layers.Dense(256, activation="relu")(out)
-    outputs = layers.Dense(1)(out)
-
-    # Outputs single value for give state-action
-    model = tf.keras.Model([state_input, action_input], outputs)
-
-    return model
-
-
-def policy(state, noise_object):
-    sampled_actions = tf.squeeze(actor_model(state))
-    noise = noise_object()
-    # Adding noise to action
-    sampled_actions = sampled_actions.numpy() + noise
-
-    # We make sure action is within bounds
-    legal_action = np.clip(sampled_actions, lower_bound, upper_bound)
-
-    return [np.squeeze(legal_action)]
-
-
 
 class DDPG(AIBase):
     def __init__(self, aiInterface, startGame, num_inputs, num_actions):
@@ -190,15 +127,16 @@ class DDPG(AIBase):
 
         #
         self.reset()
+        self.episodic_reward = 0
 
         std_dev = 0.2
         self.ou_noise = OUActionNoise(mean=np.zeros(1), std_deviation=float(std_dev) * np.ones(1))
 
-        self.actor_model = get_actor()
-        self.critic_model = get_critic()
+        self.actor_model = self.get_actor()
+        self.critic_model = self.get_critic()
 
-        self.target_actor = get_actor()
-        self.target_critic = get_critic()
+        self.target_actor = self.get_actor()
+        self.target_critic = self.get_critic()
 
         # Making the weights equal initially
         self.target_actor.set_weights(self.actor_model.get_weights())
@@ -217,7 +155,7 @@ class DDPG(AIBase):
         # Used to update target networks
         self.tau = 0.005
 
-        self.buffer = Buffer(50000, 64)
+        self.buffer = Buffer(self.num_actions, self.num_states, 50000, 64)
 
 
         # To store reward history of each episode
@@ -225,44 +163,109 @@ class DDPG(AIBase):
         # To store average reward history of last few episodes
         self.avg_reward_list = []
 
+        #Number of inputs and actions/outputs
+        self.num_states = num_inputs
+        self.num_actions = num_actions
+
+        #Clamping output of network
+        self.upper_bound = 400
+        self.lower_bound = 0
+
+
+    
+
+    # This update target parameters slowly
+    # Based on rate `tau`, which is much less than one.
+    @tf.function
+    def update_target(self, target_weights, weights, tau):
+        for (a, b) in zip(target_weights, weights):
+            a.assign(b * tau + a * (1 - tau))
+
+
+    def get_actor(self):
+        # Initialize weights between -3e-3 and 3-e3
+        last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
+
+        inputs = layers.Input(shape=(self.num_states,))
+        out = layers.Dense(256, activation="relu")(inputs)
+        out = layers.Dense(256, activation="relu")(out)
+        outputs = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out)
+
+        # Our upper bound is 2.0 for Pendulum.
+        outputs = outputs * self.upper_bound
+        model = tf.keras.Model(inputs, outputs)
+        return model
+
+
+    def get_critic(self):
+        # State as input
+        state_input = layers.Input(shape=(self.num_states))
+        state_out = layers.Dense(16, activation="relu")(state_input)
+        state_out = layers.Dense(32, activation="relu")(state_out)
+
+        # Action as input
+        action_input = layers.Input(shape=(self.num_actions))
+        action_out = layers.Dense(32, activation="relu")(action_input)
+
+        # Both are passed through seperate layer before concatenating
+        concat = layers.Concatenate()([state_out, action_out])
+
+        out = layers.Dense(256, activation="relu")(concat)
+        out = layers.Dense(256, activation="relu")(out)
+        outputs = layers.Dense(1)(out)
+
+        # Outputs single value for give state-action
+        model = tf.keras.Model([state_input, action_input], outputs)
+
+        return model
+
+
+    def policy(self, state, noise_object):
+        sampled_actions = tf.squeeze(self.actor_model(state))
+        noise = noise_object()
+        # Adding noise to action
+        sampled_actions = sampled_actions.numpy() + noise
+
+        # We make sure action is within bounds
+        legal_action = np.clip(sampled_actions, self.lower_bound, self.upper_bound)
+
+        return [np.squeeze(legal_action)]
+
+
     def reset(self):
         self.startGame()
         self.state = self.aiInterface(None)[0] #index gets only first result as aiInterface returns a tuple
         self.episode_reward = 0
 
 
-    for ep in range(self.total_episodes):
+    def train_loop(self, goalCompleted):
 
-    prev_state = env.reset()
-    episodic_reward = 0
+        self.reset()
 
-    while True:
-        # Uncomment this to see the Actor in action
-        # But not in a python notebook.
-        # env.render()
+        while True: #TODO: CHANGE TO IF
+            tf_prev_state = tf.expand_dims(tf.convert_to_tensor(prev_state), 0)
 
-        tf_prev_state = tf.expand_dims(tf.convert_to_tensor(prev_state), 0)
+            action = self.policy(tf_prev_state, self.ou_noise)
+            # Recieve state and reward from environment.
+            state, reward, done, info = env.step(action)
 
-        action = policy(tf_prev_state, self.ou_noise)
-        # Recieve state and reward from environment.
-        state, reward, done, info = env.step(action)
+            self.buffer.record((prev_state, action, reward, state))
+            episodic_reward += reward
 
-        self.buffer.record((prev_state, action, reward, state))
-        episodic_reward += reward
+            self.buffer.learn()
+            self.update_target(self.target_actor.variables, self.actor_model.variables, tau)
+            self.update_target(self.target_critic.variables, self.critic_model.variables, tau)
 
-        self.buffer.learn()
-        update_target(self.target_actor.variables, self.actor_model.variables, tau)
-        update_target(self.target_critic.variables, self.critic_model.variables, tau)
+            # End this episode when `done` is True
+            if done:
+                break
 
-        # End this episode when `done` is True
-        if done:
-            break
+            prev_state = state
 
-        prev_state = state
+        self.ep_reward_list.append(episodic_reward)
+        self.episode_reward = 0
 
-    self.ep_reward_list.append(episodic_reward)
-
-    # Mean of last 40 episodes
-    avg_reward = np.mean(self.ep_reward_list[-40:])
-    print("Episode * {} * Avg Reward is ==> {}".format(ep, avg_reward))
-    self.avg_reward_list.append(avg_reward)
+        # Mean of last 40 episodes
+        avg_reward = np.mean(self.ep_reward_list[-40:])
+        print("Episode * {} * Avg Reward is ==> {}".format(ep, avg_reward))
+        self.avg_reward_list.append(avg_reward)

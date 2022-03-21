@@ -6,7 +6,28 @@ from tensorflow.keras import layers
 import numpy as np
 
 
+class Storage():
+    def __init__(self
+                # self,
+                # target_actor,
+                # target_critic,
+                # critic_model,
+                # critic_optimizer,
+                # actor_model,
+                # actor_optimizer,
+                # gamma
+                ):
 
+        self.target_actor = None #target_actor 
+        self.target_critic = None #target_critic
+        self.critic_model = None #critic_model
+        self.critic_optimizer = None #critic_optimizer
+        self.actor_model = None#actor_model
+        self.vactor_optimizer = None#actor_optimizer
+        self.gamma = None #gamma
+        
+
+store = Storage()
 
 
 #Generates noise for exploration
@@ -18,6 +39,7 @@ class OUActionNoise:
         self.dt = dt
         self.x_initial = x_initial
         self.reset()
+
 
     def __call__(self):
         # Formula taken from https://www.wikipedia.org/wiki/Ornstein-Uhlenbeck_process.
@@ -78,28 +100,28 @@ class Buffer:
         # Training and updating Actor & Critic networks.
         # See Pseudo Code.
         with tf.GradientTape() as tape:
-            target_actions = target_actor(next_state_batch, training=True)
-            y = reward_batch + gamma * target_critic(
+            target_actions = store.target_actor(next_state_batch, training=True)
+            y = reward_batch + store.gamma * store.target_critic(
                 [next_state_batch, target_actions], training=True
             )
-            critic_value = critic_model([state_batch, action_batch], training=True)
+            critic_value = store.critic_model([state_batch, action_batch], training=True)
             critic_loss = tf.math.reduce_mean(tf.math.square(y - critic_value))
 
-        critic_grad = tape.gradient(critic_loss, critic_model.trainable_variables)
-        critic_optimizer.apply_gradients(
-            zip(critic_grad, critic_model.trainable_variables)
+        critic_grad = tape.gradient(critic_loss, store.critic_model.trainable_variables)
+        store.critic_optimizer.apply_gradients(
+            zip(critic_grad, store.critic_model.trainable_variables)
         )
 
         with tf.GradientTape() as tape:
-            actions = actor_model(state_batch, training=True)
-            critic_value = critic_model([state_batch, actions], training=True)
+            actions = store.actor_model(state_batch, training=True)
+            critic_value = store.critic_model([state_batch, actions], training=True)
             # Used `-value` as we want to maximize the value given
             # by the critic for our actions
             actor_loss = -tf.math.reduce_mean(critic_value)
 
-        actor_grad = tape.gradient(actor_loss, actor_model.trainable_variables)
-        actor_optimizer.apply_gradients(
-            zip(actor_grad, actor_model.trainable_variables)
+        actor_grad = tape.gradient(actor_loss, store.actor_model.trainable_variables)
+        store.actor_optimizer.apply_gradients(
+            zip(actor_grad, store.actor_model.trainable_variables)
         )
 
     # We compute the loss and update parameters
@@ -125,33 +147,42 @@ class DDPG(AIBase):
         #inherit previous inputs
         super().__init__(aiInterface, startGame, num_inputs, num_actions)
 
-        #
+        #Setup env
         self.reset()
+        self.prev_state = self.state
         self.episodic_reward = 0
+
+        #Number of inputs and actions/outputs
+        self.num_states = num_inputs
+        self.num_actions = num_actions
+
+        #Clamping output of network
+        self.upper_bound = 400
+        self.lower_bound = 0
 
         std_dev = 0.2
         self.ou_noise = OUActionNoise(mean=np.zeros(1), std_deviation=float(std_dev) * np.ones(1))
 
-        self.actor_model = self.get_actor()
-        self.critic_model = self.get_critic()
+        store.actor_model = self.get_actor()
+        store.critic_model = self.get_critic()
 
-        self.target_actor = self.get_actor()
-        self.target_critic = self.get_critic()
+        store.target_actor = self.get_actor()
+        store.target_critic = self.get_critic()
 
         # Making the weights equal initially
-        self.target_actor.set_weights(self.actor_model.get_weights())
-        self.target_critic.set_weights(self.critic_model.get_weights())
+        store.target_actor.set_weights(store.actor_model.get_weights())
+        store.target_critic.set_weights(store.critic_model.get_weights())
 
         # Learning rate for actor-critic models
         critic_lr = 0.002
         actor_lr = 0.001
 
-        self.critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
-        self.actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
+        store.critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
+        store.actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
 
         self.total_episodes = 100
         # Discount factor for future rewards
-        self.gamma = 0.99
+        store.gamma = 0.99
         # Used to update target networks
         self.tau = 0.005
 
@@ -162,15 +193,6 @@ class DDPG(AIBase):
         self.ep_reward_list = []
         # To store average reward history of last few episodes
         self.avg_reward_list = []
-
-        #Number of inputs and actions/outputs
-        self.num_states = num_inputs
-        self.num_actions = num_actions
-
-        #Clamping output of network
-        self.upper_bound = 400
-        self.lower_bound = 0
-
 
     
 
@@ -221,7 +243,7 @@ class DDPG(AIBase):
 
 
     def policy(self, state, noise_object):
-        sampled_actions = tf.squeeze(self.actor_model(state))
+        sampled_actions = tf.squeeze(store.actor_model(state))
         noise = noise_object()
         # Adding noise to action
         sampled_actions = sampled_actions.numpy() + noise
@@ -239,33 +261,40 @@ class DDPG(AIBase):
 
 
     def train_loop(self, goalCompleted):
+        if goalCompleted:
+            return True
 
-        self.reset()
-
-        while True: #TODO: CHANGE TO IF
-            tf_prev_state = tf.expand_dims(tf.convert_to_tensor(prev_state), 0)
+        isRunning = True
+        if isRunning: #TODO: CHANGE TO IF
+            tf_prev_state = tf.expand_dims(tf.convert_to_tensor(self.prev_state), 0)
 
             action = self.policy(tf_prev_state, self.ou_noise)
             # Recieve state and reward from environment.
-            state, reward, done, info = env.step(action)
+            self.state, reward, done, info = self.aiInterface(action)
 
-            self.buffer.record((prev_state, action, reward, state))
-            episodic_reward += reward
+            self.buffer.record((self.prev_state, action, reward, self.state))
+            self.episodic_reward += reward
 
             self.buffer.learn()
-            self.update_target(self.target_actor.variables, self.actor_model.variables, tau)
-            self.update_target(self.target_critic.variables, self.critic_model.variables, tau)
+            self.update_target(store.target_actor.variables, store.actor_model.variables, self.tau)
+            self.update_target(store.target_critic.variables, store.critic_model.variables, self.tau)
 
             # End this episode when `done` is True
             if done:
-                break
+                isRunning = False
 
-            prev_state = state
+            self.prev_state = self.state
 
-        self.ep_reward_list.append(episodic_reward)
-        self.episode_reward = 0
+        if not(isRunning):
+            self.reset()
 
-        # Mean of last 40 episodes
-        avg_reward = np.mean(self.ep_reward_list[-40:])
-        print("Episode * {} * Avg Reward is ==> {}".format(ep, avg_reward))
-        self.avg_reward_list.append(avg_reward)
+            self.ep_reward_list.append(self.episodic_reward)
+            self.episode_reward = 0
+
+            #log
+            # Mean of last 40 episodes
+            avg_reward = np.mean(self.ep_reward_list[-40:])
+            #print("Episode * {} * Avg Reward is ==> {}".format(ep, avg_reward))
+            self.avg_reward_list.append(avg_reward)
+
+            

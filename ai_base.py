@@ -1,3 +1,5 @@
+from tensorflow import keras
+
 #parameters all aipi ai's use
 class AIBase():
     def __init__(self, aiInterface, startGame, num_inputs, num_actions):
@@ -10,3 +12,7 @@ class AIBase():
     #Saves current model to file
     def saveModel(self, location):
         self.model.save(location)
+
+    #Saves current model to file
+    def loadModel(self, location):
+        self.model = keras.models.load_model(location)

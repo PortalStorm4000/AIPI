@@ -5,9 +5,9 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import numpy as np
 
-
 class Storage():
     def __init__(self
+
                 # self,
                 # target_actor,
                 # target_critic,
@@ -17,7 +17,6 @@ class Storage():
                 # actor_optimizer,
                 # gamma
                 ):
-
         self.target_actor = None #target_actor 
         self.target_critic = None #target_critic
         self.critic_model = None #critic_model
@@ -157,12 +156,10 @@ class DDPG(AIBase):
         self.num_actions = num_actions
 
         #Clamping output of network
-        self.upper_bound = 400
+        self.upper_bound = 400 #400
         self.lower_bound = 0
 
-        std_dev = 0.2
-        self.ou_noise = OUActionNoise(mean=np.zeros(1), std_deviation=float(std_dev) * np.ones(1))
-
+        #Model
         store.actor_model = self.get_actor()
         store.critic_model = self.get_critic()
 
@@ -172,6 +169,9 @@ class DDPG(AIBase):
         # Making the weights equal initially
         store.target_actor.set_weights(store.actor_model.get_weights())
         store.target_critic.set_weights(store.critic_model.get_weights())
+
+        std_dev = 100
+        self.ou_noise = OUActionNoise(mean=np.zeros(1), std_deviation=float(std_dev) * np.ones(1))
 
         # Learning rate for actor-critic models
         critic_lr = 0.002
@@ -209,6 +209,8 @@ class DDPG(AIBase):
         last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
         inputs = layers.Input(shape=(self.num_states,))
+        inputs = tf.keras.layers.LayerNormalization(axis=-1, center=True,scale=True,trainable=True,name='input_normalized',)(inputs)#normalization
+
         out = layers.Dense(256, activation="relu")(inputs)
         out = layers.Dense(256, activation="relu")(out)
         outputs = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out)
@@ -222,6 +224,8 @@ class DDPG(AIBase):
     def get_critic(self):
         # State as input
         state_input = layers.Input(shape=(self.num_states))
+        state_input = tf.keras.layers.LayerNormalization(axis=-1, center=True,scale=True,trainable=True,name='input_normalized',)(state_input)#normalization
+
         state_out = layers.Dense(16, activation="relu")(state_input)
         state_out = layers.Dense(32, activation="relu")(state_out)
 
@@ -266,9 +270,11 @@ class DDPG(AIBase):
 
         isRunning = True
         if isRunning: #TODO: CHANGE TO IF
+
             tf_prev_state = tf.expand_dims(tf.convert_to_tensor(self.prev_state), 0)
 
             action = self.policy(tf_prev_state, self.ou_noise)
+
             # Recieve state and reward from environment.
             self.state, reward, done, info = self.aiInterface(action)
 
@@ -286,8 +292,6 @@ class DDPG(AIBase):
             self.prev_state = self.state
 
         if not(isRunning):
-            self.reset()
-
             self.ep_reward_list.append(self.episodic_reward)
             self.episode_reward = 0
 
@@ -296,5 +300,7 @@ class DDPG(AIBase):
             avg_reward = np.mean(self.ep_reward_list[-40:])
             #print("Episode * {} * Avg Reward is ==> {}".format(ep, avg_reward))
             self.avg_reward_list.append(avg_reward)
+            
+            self.reset()
 
             

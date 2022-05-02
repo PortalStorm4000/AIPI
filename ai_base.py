@@ -13,6 +13,6 @@ class AIBase():
     def saveModel(self, location):
         self.model.save(location)
 
-    #Saves current model to file
+    #Returns model from file
     def loadModel(self, location):
         self.model = keras.models.load_model(location)

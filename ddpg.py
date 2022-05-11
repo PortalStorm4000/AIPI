@@ -198,17 +198,17 @@ class DDPG(AIBase):
     
     def saveModel(self, location):
         store.actor_model.save(location+"/actor_model")
-        store.critic_model.save(location+"/crtic_model")
+        store.critic_model.save(location+"/critic_model")
 
         store.target_actor.save(location+"/target_actor_model")
-        store.target_critic.save(location+"/target_crtic_model")
+        store.target_critic.save(location+"/target_critic_model")
 
     def loadModel(self, location):
         store.actor_mode = keras.models.load_model(location+"/actor_model")
         store.critic_mode = keras.models.load_model(location+"/critic_model")
 
         store.target_actor = keras.models.load_model(location+"/target_actor_model")
-        store.target_critic = keras.models.load_model(location+"/target_crtic_model")
+        store.target_critic = keras.models.load_model(location+"/target_critic_model")
 
 
     # This update target parameters slowly
